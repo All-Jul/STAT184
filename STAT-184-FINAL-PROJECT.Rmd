@@ -1,0 +1,550 @@
+---
+title: "Final Project"
+name: Allan E. Julian
+date: "2023-12-04"
+output:
+  html_document:
+    df_print: paged
+---
+# Exploring Air Quality Index in Urban vs Rural areas with an Emphasis in Centre County, PA
+
+In the contemporary landscape, issues related to air quality have gained paramount significance, with concerns arising about the accuracy and transparency of reported air quality data. The phenomenon of air pollution, commonly attributed to common citizens , has extended its reach to encompass environmental factors, including the air we breathe. As urban and rural areas grapple with diverse environmental challenges, the need for reliable air quality information becomes increasingly crucial.
+
+This exploration centers around a comprehensive dataset capturing daily Air Quality Index (AQI) measurements across various counties in the United States. The dataset encompasses crucial variables such as State Name, County Name, Date, AQI, Category, Defining Parameter, Defining Site, and the Number of Sites Reporting. The primary objective is to scrutinize the variations in air quality and investigate the potential impact of diverse environmental factors.
+
+Drawing inspiration from methodologies employed in similar studies, this project leverages statistical techniques, data cleaning, and exploratory data analysis (EDA) using the R programming language. The focus is not only on discerning relationships between air quality and environmental factors but also on elucidating the complex interplay of variables that contribute to fluctuations in air quality.
+
+As we embark on this analytical journey, the ultimate goal is to gain insights into the dynamics of air quality, allowing for a more informed understanding of the factors influencing it. Through this exploration, we aim to contribute valuable knowledge to the broader discourse on environmental health, policy-making, and public awareness
+
+Air pollution is a major global issue that affects the health and well-being of millions of people. To help  understand the quality of air in your city. The Air Quality Index (AQI) is a widely-used measure of air pollution that provides information on the quality of air in a city on a daily basis.
+
+The AQI calculation takes into account the levels of five major air pollutants, including ground-level ozone, particle pollution/particulate matter (PM2.5/pm 10), carbon monoxide, sulfur dioxide, and nitrogen dioxide. These pollutants can have different impacts on health, and their levels are measured to determine the overall AQI. In the United States, you can also find a ranking of air quality by state.
+
+Suppose we have a family in which there are members that are a vulnerable population to respiratory conditions (asthma, bronchitis, etc), can we make a model to help this family choose a county to live in that would minimize the chances of environmental conditions affecting their pre-existing conditions?
+ 
+ 
+# Data Exploration
+
+As per usual with any statistical test, some data exploration needs to be done in order to get a better sense of the type of data that we are working with and to discard any innapropiate statistical test we were thinking of doing/
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(GGally)
+
+setwd("/Users/allan/Downloads")
+file_path <- file.path("/Users/allan/Downloads", "daily_aqi_by_county_2023.csv")
+
+air_quality_data <- read.csv(file_path)
+
+```
+Let us inspect the data to get a sense of how it looks like.
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+head(air_quality_data)
+```
+There are 10 variables, all of which are categorical except for AQI, which is continuous. We will mostly focus on the first 8, with AQI being the main character
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+# Load necessary libraries
+library(tidyverse)
+library(ggplot2)
+
+# EDA for Categorical Variables (Defining.Parameter)
+# Summary statistics and distribution of Defining.Parameters
+defining_param_summary <- air_quality_data %>%
+  group_by(Defining.Parameter) %>%
+  summarise(
+    Mean_AQI = mean(AQI),
+    Median_AQI = median(AQI),
+    Min_AQI = min(AQI),
+    Max_AQI = max(AQI),
+    Count = n()
+  )
+
+defining_param_summary
+```
+At a first glance, we can see that Ozone is the most common contaminant parameter, appearing in the majority of the cases, but it doesn't seem to have too much impact on AQI, PM10 and PM2.5 have alos similar means to Ozone and PM10's Max_AQI is orders of magnitude bigger than Ozone, let us inspect furter
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+# Bar plot of Mean AQI by Defining.Parameter
+ggplot(defining_param_summary, aes(x = Defining.Parameter, y = Mean_AQI, fill = Defining.Parameter)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Mean AQI by Defining Parameter",
+       x = "Defining Parameter",
+       y = "Mean AQI",
+       fill = "Defining Parameter") +
+  theme_minimal()
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+# Boxplot of AQI distribution by Defining.Parameter
+ggplot(air_quality_data, aes(x = Defining.Parameter, y = AQI, fill = Defining.Parameter)) +
+  geom_boxplot() +
+  labs(title = "AQI Distribution by Defining Parameter",
+       x = "Defining Parameter",
+       y = "AQI",
+       fill = "Defining Parameter") +
+  theme_minimal()
+```
+As we can see, the variance of AQI within the PM10 group seems to be way higher than those from other groups, so even tho Ozone presents a higher overall mean despite being very common, I am inclined to believe that the presence of PM10 and PM2.5 have a higher impact in the overall AQI.
+
+Let us see now what the AQI would look like in a certain Urban county and a rural one
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+
+# Filter data for New York County (NYC)
+nyc_data <- air_quality_data %>%
+  filter(State.Name == "New York" & county.Name == "Kings")
+
+# Filter data for Baldwin, Alaska
+fairbanks_data <- air_quality_data %>%
+  filter(State.Name == "Alaska" & county.Name == "Fairbanks North Star ")
+
+# Summary statistics for NYC and Baldwin
+summary_nyc <- nyc_data %>%
+  summarise(
+    Mean_AQI = mean(AQI),
+    Median_AQI = median(AQI),
+    Max_AQI = max(AQI),
+    Min_AQI = min(AQI),
+    Total_Days = n()
+  )
+
+summary_fairbanks <- fairbanks_data %>%
+  summarise(
+    Mean_AQI = mean(AQI),
+    Median_AQI = median(AQI),
+    Max_AQI = max(AQI),
+    Min_AQI = min(AQI),
+    Total_Days = n()
+  )
+summary_nyc
+summary_fairbanks
+```
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+# Boxplot of AQI distribution for NYC and Baldwin
+comparison_data <- rbind(
+  mutate(nyc_data, Location = "NYC"),
+  mutate(fairbanks_data, Location = "Fairbanks")
+)
+
+ggplot(comparison_data, aes(x = Location, y = AQI, fill = Location)) +
+  geom_boxplot() +
+  labs(title = "AQI Distribution: NYC vs. Fairbanks",
+       x = "Location",
+       y = "AQI",
+       fill = "Location") +
+  theme_minimal()
+```
+
+An Urban vs Rural analysis would have been insanely useful given the seemingly unintuitive results from this code snippet, unfortunately, the data does not provide us with a variable that identifies a certain county based on wether it is rural or urban. This is one of the limitations of the dataset and further analysis to answer the research question won't take into consideration the zoning (Urban or Rural), it is a handicap but there are other alternatives.
+
+
+
+In order to get an idea of what the parameters do, let us use state college as an example. State College in June 2023, experienced one of the worst AQI's of the last decade because of the canadian wildfires, ashes are considered to be PM10 particles. In order to answer our question better, we need to see wether we can correlate the presence of wildfires or volcaninc eruptions and AQI.
+
+Although not a formal hypothesis test, the next visualization may confirm our suspicions.
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+
+# Filter data for Centre County, PA
+centre_county_data <- air_quality_data %>%
+  filter(State.Name == "Pennsylvania" & county.Name == "Centre")
+
+# Convert Date to a date format
+centre_county_data$Date <- as.Date(centre_county_data$Date)
+
+# Aggregate data to monthly averages
+monthly_avg_data <- centre_county_data %>%
+  group_by(Year = lubridate::year(Date), Month = lubridate::month(Date)) %>%
+  summarise(Avg_AQI = mean(AQI))
+
+# Time series plot of Monthly Average AQI in Centre County, PA
+ggplot(monthly_avg_data, aes(x = as.Date(paste(Year, Month, 1, sep = "-")), y = Avg_AQI)) +
+  geom_line() +
+  labs(title = "Monthly Average Air Quality in Centre County, PA",
+       x = "Date",
+       y = "Average AQI") +
+  theme_minimal()
+```
+As we can see, during the of June the Averaeg AQI skyrocketed, I think we can see why PM10 is considered one of the worst contaminants out there, the level of damage it can cause is seemingly endless, despite being rare to a certain extent.
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+summary_centre <- centre_county_data %>%
+  summarise(
+    Mean_AQI = mean(AQI),
+    Median_AQI = median(AQI),
+    Max_AQI = max(AQI),
+    Min_AQI = min(AQI),
+    Total_Days = n()
+  )
+
+
+summary_centre
+```
+State College AQI peaked at 187 during the times of the canadian wildfires that affected the Mid-Atlantic and New-England zones of the United States, further analysis could be conducted by the researcher to get exact dates.
+
+Let us see now which places present the worst air quality.
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+
+# Filter data for counties with AQI >= 301
+air_above_301 <- air_quality_data[air_quality_data$AQI >= 301, ]
+
+# Create a frequency table
+frequency_table <- table(air_above_301$State.Name)
+
+# Convert the table to a data frame
+frequency_df <- as.data.frame(frequency_table)
+
+# Rename the columns
+colnames(frequency_df) <- c("State.Name", "Frequency")  # Use the correct column names
+
+# Sort the data frame by Frequency in descending order
+frequency_df <- frequency_df[order(-frequency_df$Frequency), ]
+
+# Print the nicely formatted frequency table
+print(
+  knitr::kable(
+    frequency_df,
+    caption = "Frequency Table of States with AQI >= 301",
+    col.names = c("State", "Frequency"),  # Adjust column names if needed
+    align = "c"
+  )
+)
+
+```
+
+Idaho and California are the states with the worst overall air quality, this comes to no one's surprise given how frequent wildfires are in those areas.
+
+# Statistical Tests 
+
+Notice that in the first figures, the variance and distribution of the AQI based on the parameter were neither equal nor normal, this already rules out any sort of ANOVA or ANCOVA test, since the variables are very associated, a decision tree or random forest would be the best tool for our analysis.
+
+In this analysis, a Random Forest model was employed to predict the Air Quality Index (AQI) based on various predictor variables from the given dataset. The model was trained on a subset of the data, and its predictive performance was evaluated on a separate test set.
+
+The choice of a Random Forest model is often justified when dealing with complex and non-linear relationships between predictors and the response variable. Random Forests are an ensemble learning method that leverages the strength of multiple decision trees, making them robust and less prone to overfitting. They are particularly useful in capturing intricate patterns and interactions within the data.
+
+The model's performance was assessed using the Root Mean Squared Error (RMSE), which measures the average magnitude of prediction errors. In this case, the RMSE was calculated to be 9.48. The RMSE value provides an indication of the average difference between the observed AQI values in the test set and the predictions made by the Random Forest model. A lower RMSE suggests that the model's predictions are closer to the actual values, indicating better accuracy.
+
+However, it's essential to consider the specific context and requirements of the air quality prediction task. Given the great variablity in AQI, an RMSE of 9.48 seems acceptable and the model could be useful.
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+# Load necessary libraries
+library(tidyverse)
+library(caret)
+library(randomForest)
+
+# Data cleaning and preprocessing
+subset_data <- air_quality_data 
+# Convert categorical variables to factors
+
+
+# Split the data into training and testing sets
+set.seed(123)
+train_indices <- createDataPartition(subset_data$AQI, p = 0.8, list = FALSE)
+train_data <- subset_data[train_indices, ]
+test_data <- subset_data[-train_indices, ]
+
+# Random Forest model
+rf_model <- randomForest(AQI ~ ., data = train_data, ntree = 5)
+
+# Predict AQI on the test set
+predictions <- predict(rf_model, newdata = test_data)
+
+# Evaluate the model
+rmse <- sqrt(mean((test_data$AQI - predictions)^2))
+cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+```
+
+The Following test involves creating a decision tree model for predicting the 'Category' variable based on 'County.Code' and 'AQI' features. It then visualizes the decision tree, makes predictions on the test set, and evaluates the model using a confusion matrix and accuracy. Decision trees are particularly well-suited for scenarios where the relationship between predictor variables and the target variable is complex and may involve non-linear interactions. The resulting decision tree was visualized to provide a clear understanding of the hierarchical rules and conditions governing the classification process. We use this model to double check the robustness.
+
+Upon examination of the decision tree plot, it is evident that the model identified specific thresholds and combinations of 'County.Code' and 'AQI' values to categorize air quality. Each leaf node in the tree represents a distinct classification outcome, while the branching nodes illustrate the decision criteria based on the input features. This interpretability is a key advantage of decision trees, offering transparency into the decision-making process.
+
+To assess the model's performance, predictions were made on an independent test set, and a confusion matrix was generated to evaluate the accuracy of the classifications. The confusion matrix provides insights into the model's ability to correctly predict each air quality category and identify any potential miscalculations. The accuracy metric, which measures the proportion of correctly predicted instances, offers a quantitative summary of the model's overall effectiveness.
+
+```{r, echo = FALSE, message = FALSE, warning = FALSE, error = FALSE}
+# Load libraries
+library(caret)
+library(rpart)
+library(rpart.plot)
+
+# Read the dataset
+data <- air_quality_data
+
+# Convert 'Category' to a factor with consistent levels
+data$Category <- as.factor(data$Category)
+
+# Split the data into training and testing sets
+set.seed(123)
+train_index <- createDataPartition(data$Category, p = 0.8, list = FALSE)
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+
+# Ensure consistent factor levels in 'Category' for both datasets
+test_data$Category <- factor(test_data$Category, levels = levels(train_data$Category))
+
+# Create a decision tree model
+tree_model <- rpart(Category ~ County.Code + AQI, data = train_data, method = "class")
+
+# Visualize the decision tree
+rpart.plot(tree_model, type = 4, extra = 101, fallen.leaves = TRUE, box.col = c("#D3D3D3"))
+
+# Make predictions on the test set
+predictions <- predict(tree_model, newdata = test_data, type = "class")
+
+# Confusion matrix
+conf_matrix <- confusionMatrix(predictions, test_data$Category)
+print(conf_matrix)
+
+# Accuracy
+accuracy <- conf_matrix$overall["Accuracy"]
+accuracy
+```
+
+# Conclusion
+
+In conclusion, the statistical analysis presented in this report aimed to understand and predict Air Quality Index (AQI) based on various features. Two distinct modeling approaches were employed: a Random Forest model and a Decision Tree model.
+
+The Random Forest model, characterized by its ability to handle complex relationships, demonstrated promising predictive performance with a Root Mean Squared Error (RMSE) of 9.47. The RMSE, representing the average difference between predicted and observed AQI values, indicates the model's accuracy. Further refinement and validation may enhance its effectiveness in real-world air quality prediction scenarios.
+
+Additionally, the Decision Tree model, known for its interpretability, was constructed using 'County.Code' and 'AQI' as predictors. The resulting tree structure provides insights into the decision-making process, revealing specific thresholds and conditions that contribute to air quality categorization. Evaluation on an independent test set yielded a confusion matrix, offering a detailed breakdown of the model's classification accuracy.
+
+Both models contribute distinct advantages to air quality prediction tasks. The Random Forest model excels in capturing intricate patterns, while the Decision Tree model offers transparency and interpretability. The choice between these models depends on the specific requirements of the application, balancing accuracy and interpretability.
+
+Moving forward, it is recommended to explore additional features, conduct feature importance analysis, and consider more advanced modeling techniques for continued improvement. The statistical insights gained from these models can inform the decision-makers in addressing a matter of topics ranging from air quality concerns a prospective home buyer may have to implementing targeted interventions for environmental improvement. 
+
+
+# Code Appendix
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(GGally)
+
+setwd("/Users/allan/Downloads")
+file_path <- file.path("/Users/allan/Downloads", "daily_aqi_by_county_2023.csv")
+
+air_quality_data <- read.csv(file_path)
+
+
+#######################
+
+head(air_quality_data)
+
+##################
+
+# Load necessary libraries
+library(tidyverse)
+library(ggplot2)
+
+# EDA for Categorical Variables (Defining.Parameter)
+# Summary statistics and distribution of Defining.Parameters
+defining_param_summary <- air_quality_data %>%
+  group_by(Defining.Parameter) %>%
+  summarise(
+    Mean_AQI = mean(AQI),
+    Median_AQI = median(AQI),
+    Min_AQI = min(AQI),
+    Max_AQI = max(AQI),
+    Count = n()
+  )
+
+defining_param_summary
+#########################
+
+# Bar plot of Mean AQI by Defining.Parameter
+ggplot(defining_param_summary, aes(x = Defining.Parameter, y = Mean_AQI, fill = Defining.Parameter)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Mean AQI by Defining Parameter",
+       x = "Defining Parameter",
+       y = "Mean AQI",
+       fill = "Defining Parameter") +
+  theme_minimal()
+
+#########################
+
+# Boxplot of AQI distribution by Defining.Parameter
+ggplot(air_quality_data, aes(x = Defining.Parameter, y = AQI, fill = Defining.Parameter)) +
+  geom_boxplot() +
+  labs(title = "AQI Distribution by Defining Parameter",
+       x = "Defining Parameter",
+       y = "AQI",
+       fill = "Defining Parameter") +
+  theme_minimal()
+
+#########################
+# Filter data for New York County (NYC)
+nyc_data <- air_quality_data %>%
+  filter(State.Name == "New York" & county.Name == "Kings")
+
+# Filter data for Baldwin, Alaska
+fairbanks_data <- air_quality_data %>%
+  filter(State.Name == "Alaska" & county.Name == "Fairbanks North Star ")
+
+# Summary statistics for NYC and Baldwin
+summary_nyc <- nyc_data %>%
+  summarise(
+    Mean_AQI = mean(AQI),
+    Median_AQI = median(AQI),
+    Max_AQI = max(AQI),
+    Min_AQI = min(AQI),
+    Total_Days = n()
+  )
+
+summary_fairbanks <- fairbanks_data %>%
+  summarise(
+    Mean_AQI = mean(AQI),
+    Median_AQI = median(AQI),
+    Max_AQI = max(AQI),
+    Min_AQI = min(AQI),
+    Total_Days = n()
+  )
+summary_nyc
+summary_fairbanks
+
+#########################
+
+# Boxplot of AQI distribution for NYC and Baldwin
+comparison_data <- rbind(
+  mutate(nyc_data, Location = "NYC"),
+  mutate(fairbanks_data, Location = "Fairbanks")
+)
+
+ggplot(comparison_data, aes(x = Location, y = AQI, fill = Location)) +
+  geom_boxplot() +
+  labs(title = "AQI Distribution: NYC vs. Fairbanks",
+       x = "Location",
+       y = "AQI",
+       fill = "Location") +
+  theme_minimal()
+#########################
+
+
+# Filter data for Centre County, PA
+centre_county_data <- air_quality_data %>%
+  filter(State.Name == "Pennsylvania" & county.Name == "Centre")
+
+# Convert Date to a date format
+centre_county_data$Date <- as.Date(centre_county_data$Date)
+
+# Aggregate data to monthly averages
+monthly_avg_data <- centre_county_data %>%
+  group_by(Year = lubridate::year(Date), Month = lubridate::month(Date)) %>%
+  summarise(Avg_AQI = mean(AQI))
+
+# Time series plot of Monthly Average AQI in Centre County, PA
+ggplot(monthly_avg_data, aes(x = as.Date(paste(Year, Month, 1, sep = "-")), y = Avg_AQI)) +
+  geom_line() +
+  labs(title = "Monthly Average Air Quality in Centre County, PA",
+       x = "Date",
+       y = "Average AQI") +
+  theme_minimal()
+
+#########################
+
+summary_centre <- centre_county_data %>%
+  summarise(
+    Mean_AQI = mean(AQI),
+    Median_AQI = median(AQI),
+    Max_AQI = max(AQI),
+    Min_AQI = min(AQI),
+    Total_Days = n()
+  )
+
+
+summary_centre
+
+#########################
+
+# Filter data for counties with AQI >= 301
+air_above_301 <- air_quality_data[air_quality_data$AQI >= 301, ]
+
+# Create a frequency table
+frequency_table <- table(air_above_301$State.Name)
+
+# Convert the table to a data frame
+frequency_df <- as.data.frame(frequency_table)
+
+# Rename the columns
+colnames(frequency_df) <- c("State.Name", "Frequency")  # Use the correct column names
+
+# Sort the data frame by Frequency in descending order
+frequency_df <- frequency_df[order(-frequency_df$Frequency), ]
+
+# Print the nicely formatted frequency table
+print(
+  knitr::kable(
+    frequency_df,
+    caption = "Frequency Table of States with AQI >= 301",
+    col.names = c("State", "Frequency"),  # Adjust column names if needed
+    align = "c"
+  )
+)
+#########################
+# Load necessary libraries
+library(caret)
+library(randomForest)
+
+# Data cleaning and preprocessing
+subset_data <- air_quality_data 
+# Convert categorical variables to factors
+
+
+# Split the data into training and testing sets
+set.seed(123)
+train_indices <- createDataPartition(subset_data$AQI, p = 0.8, list = FALSE)
+train_data <- subset_data[train_indices, ]
+test_data <- subset_data[-train_indices, ]
+
+# Random Forest model
+rf_model <- randomForest(AQI ~ ., data = train_data, ntree = 5)
+
+# Predict AQI on the test set
+predictions <- predict(rf_model, newdata = test_data)
+
+# Evaluate the model
+rmse <- sqrt(mean((test_data$AQI - predictions)^2))
+cat("Root Mean Squared Error (RMSE):", rmse, "\n")
+
+
+###########################
+
+library(rpart)
+library(rpart.plot)
+
+# Read the dataset
+data <- air_quality_data
+
+# Convert 'Category' to a factor with consistent levels
+data$Category <- as.factor(data$Category)
+
+# Split the data into training and testing sets
+set.seed(123)
+train_index <- createDataPartition(data$Category, p = 0.8, list = FALSE)
+train_data <- data[train_index, ]
+test_data <- data[-train_index, ]
+
+# Ensure consistent factor levels in 'Category' for both datasets
+test_data$Category <- factor(test_data$Category, levels = levels(train_data$Category))
+
+# Create a decision tree model
+tree_model <- rpart(Category ~ County.Code + AQI, data = train_data, method = "class")
+
+# Visualize the decision tree
+rpart.plot(tree_model, type = 4, extra = 101, fallen.leaves = TRUE, box.col = c("#D3D3D3"))
+
+# Make predictions on the test set
+predictions <- predict(tree_model, newdata = test_data, type = "class")
+
+# Confusion matrix
+conf_matrix <- confusionMatrix(predictions, test_data$Category)
+print(conf_matrix)
+
+# Accuracy
+accuracy <- conf_matrix$overall["Accuracy"]
+accuracy
+
+```
+
