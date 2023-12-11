@@ -33,8 +33,8 @@ library(ggplot2)
 library(tidyr)
 library(GGally)
 
-setwd("/Users/allan/Downloads")
-file_path <- file.path("/Users/allan/Downloads", "daily_aqi_by_county_2023.csv")
+
+file_path <- file.path("daily_aqi_by_county_2023.csv")
 
 air_quality_data <- read.csv(file_path)
 
@@ -323,8 +323,7 @@ library(ggplot2)
 library(tidyr)
 library(GGally)
 
-setwd("/Users/allan/Downloads")
-file_path <- file.path("/Users/allan/Downloads", "daily_aqi_by_county_2023.csv")
+file_path <- file.path("daily_aqi_by_county_2023.csv")
 
 air_quality_data <- read.csv(file_path)
 
